@@ -3,13 +3,16 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib import messages
 from django.http import (HttpResponseRedirect,
                          Http404,
-                         HttpResponsePermanentRedirect)
+                         HttpResponsePermanentRedirect,
+                         JsonResponse,)
 
 from .misc import (hash_encode,
                    get_absolute_short_url)
 from .forms import URLShortenerForm
 from .models import Link
 
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 
 def index(request):
     if request.method == 'POST':
@@ -41,6 +44,18 @@ def index(request):
         'absolute_index_url': get_absolute_short_url(request, ''),
     })
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def shorten(request):
+    url = request.POST['url']
+
+    new_link = Link.objects.create(url=url)
+    new_link.alias = hash_encode(new_link.id + 1)
+    new_link.save()
+
+    data = {'data':{}}
+    data['data']['hash'] = new_link.alias
+    return JsonResponse(data=data)
 
 def preview(request, alias):
     link = get_object_or_404(Link, alias__iexact=alias)
